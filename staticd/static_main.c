@@ -128,8 +128,7 @@ FRR_DAEMON_INFO(staticd, STATIC, .vty_port = STATIC_VTY_PORT,
 
 		.privs = &static_privs, .yang_modules = staticd_yang_modules,
 		.n_yang_modules = array_size(staticd_yang_modules),
-
-		.flags = FRR_NO_SPLIT_CONFIG);
+	);
 
 int main(int argc, char **argv, char **envp)
 {
