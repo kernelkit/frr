@@ -657,7 +657,9 @@ struct yang_data *yang_data_list_find(const struct list *list,
 }
 
 /* Make libyang log its errors using FRR logging infrastructure. */
-static void ly_log_cb(LY_LOG_LEVEL level, const char *msg, const char *path)
+static void ly_log_cb(LY_LOG_LEVEL level, const char *msg,
+		      const char *data_path, const char *schema_path,
+		      uint64_t line)
 {
 	int priority = LOG_ERR;
 
@@ -674,8 +676,8 @@ static void ly_log_cb(LY_LOG_LEVEL level, const char *msg, const char *path)
 		break;
 	}
 
-	if (path)
-		zlog(priority, "libyang: %s (%s)", msg, path);
+	if (data_path)
+		zlog(priority, "libyang: %s (%s)", msg, data_path);
 	else
 		zlog(priority, "libyang: %s", msg);
 }
@@ -752,7 +754,7 @@ struct ly_ctx *yang_ctx_new_setup(bool embedded_modules, bool explicit_compile)
 void yang_init(bool embedded_modules, bool defer_compile)
 {
 	/* Initialize libyang global parameters that affect all containers. */
-	ly_set_log_clb(ly_log_cb, 1);
+	ly_set_log_clb(ly_log_cb);
 	ly_log_options(LY_LOLOG | LY_LOSTORE);
 
 	/* Initialize libyang container for native models. */
