@@ -16,6 +16,12 @@
 
 #include "yang_wrappers.h"
 
+/* libyang4 renamed LYD_PRINT_WITHSIBLINGS to LYD_PRINT_SIBLINGS */
+#include <libyang/version.h>
+#if (LY_VERSION_MAJOR >= 4)
+#define LYD_PRINT_WITHSIBLINGS LYD_PRINT_SIBLINGS
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
