@@ -789,6 +789,51 @@ void _zlog_assert_failed(const struct xref_assert *xref, const char *extra, ...)
 	abort();
 }
 
+/* C++ versions without xref struct - used to avoid static variables in
+ * constexpr contexts (C++23 requirement)
+ */
+void _zlog_assert_failed_cpp(const char *file, int line, const char *func,
+			      const char *expr)
+{
+	static bool assert_in_assert; /* "global-ish" variable, init to 0 */
+
+	if (assert_in_assert)
+		abort();
+	assert_in_assert = true;
+
+	zlog(LOG_CRIT, "%s:%d: %s(): assertion (%s) failed", file, line, func,
+	     expr);
+
+	/* abort() prints backtrace & memstats in SIGABRT handler */
+	abort();
+}
+
+void _zlog_assert_failed_cpp_fmt(const char *file, int line, const char *func,
+				  const char *expr, const char *extra, ...)
+{
+	va_list ap;
+	static bool assert_in_assert; /* "global-ish" variable, init to 0 */
+
+	if (assert_in_assert)
+		abort();
+	assert_in_assert = true;
+
+	struct va_format vaf;
+
+	va_start(ap, extra);
+	vaf.fmt = extra;
+	vaf.va = &ap;
+
+	zlog(LOG_CRIT,
+	     "%s:%d: %s(): assertion (%s) failed, extra info: %pVA", file,
+	     line, func, expr, &vaf);
+
+	va_end(ap);
+
+	/* abort() prints backtrace & memstats in SIGABRT handler */
+	abort();
+}
+
 int zlog_msg_prio(struct zlog_msg *msg)
 {
 	return msg->prio;
