@@ -41,12 +41,25 @@ extern void _zlog_assert_failed(const struct xref_assert *xref,
 				const char *extra, ...) PRINTFRR(2, 3)
 	__attribute__((noreturn));
 
+#ifdef __cplusplus
+/* C++ helper functions for assert without xref (to work in constexpr) */
+extern void _zlog_assert_failed_cpp(const char *file, int line,
+				     const char *func, const char *expr)
+	__attribute__((noreturn));
+extern void _zlog_assert_failed_cpp_fmt(const char *file, int line,
+					 const char *func, const char *expr,
+					 const char *extra, ...)
+	PRINTFRR(5, 6) __attribute__((noreturn));
+#endif
+
 /* the "do { } while (expr_)" is there to get a warning for assignments inside
  * the assert expression aka "assert(x = 1)".  The (necessary) braces around
  * expr_ in the if () statement would suppress these warnings.  Since
  * _zlog_assert_failed() is noreturn, the while condition will never be
  * checked.
  */
+#ifndef __cplusplus
+/* C version with full xref tracking */
 #define assert(expr_)                                                          \
 	({                                                                     \
 		static const struct xref_assert _xref __attribute__(           \
@@ -77,6 +90,22 @@ extern void _zlog_assert_failed(const struct xref_assert *xref,
 						    ##__VA_ARGS__);            \
 			} while (expr_);                                       \
 	})
+#else
+/* C++ version without xref tracking to allow use in constexpr contexts.
+ * Static variables in constexpr functions are only allowed in C++23, but
+ * we need to support earlier standards for compatibility with libraries
+ * like Abseil that use assert() in constexpr functions.
+ */
+#define assert(expr_)                                                          \
+	((expr_) ? (void)0                                                     \
+		 : _zlog_assert_failed_cpp(__FILE__, __LINE__, __func__,       \
+					   #expr_))
+
+#define assertf(expr_, extra_, ...)                                            \
+	((expr_) ? (void)0                                                     \
+		 : _zlog_assert_failed_cpp_fmt(__FILE__, __LINE__, __func__,   \
+					       #expr_, extra_, ##__VA_ARGS__))
+#endif
 
 #define zassert assert
 
