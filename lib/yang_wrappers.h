@@ -7,7 +7,12 @@
 #ifndef _FRR_NORTHBOUND_WRAPPERS_H_
 #define _FRR_NORTHBOUND_WRAPPERS_H_
 
+/* libyang >= 5 defines its own _DEPRECATED, keep the one from compiler.h */
+#pragma push_macro("_DEPRECATED")
+#undef _DEPRECATED
 #include <libyang/libyang.h>
+#undef _DEPRECATED
+#pragma pop_macro("_DEPRECATED")
 #include "prefix.h"
 
 #ifdef __cplusplus

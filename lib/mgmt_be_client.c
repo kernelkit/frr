@@ -862,8 +862,7 @@ static void be_client_handle_rpc(struct mgmt_be_client *client, uint64_t txn_id,
 		 * It is especially needed for actions, because their parents
 		 * may hold necessary information.
 		 */
-		err = lyd_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0, 0,
-				    NULL, &input);
+		err = yang_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0, NULL, &input);
 		if (err) {
 			be_client_send_error(client, txn_id, rpc_msg->req_id,
 					     false, -EINVAL,
@@ -873,8 +872,7 @@ static void be_client_handle_rpc(struct mgmt_be_client *client, uint64_t txn_id,
 		}
 	}
 
-	err = lyd_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0, 0, NULL,
-			    &output);
+	err = yang_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0, NULL, &output);
 	if (err) {
 		lyd_free_all(input);
 		be_client_send_error(client, txn_id, rpc_msg->req_id, false,
@@ -1227,10 +1225,11 @@ static enum nb_error clients_client_state_candidate_config_version_get(
 	const struct nb_node *nb_node, const void *parent_list_entry, struct lyd_node *parent)
 {
 	const struct lysc_node *snode = nb_node->snode;
-	uint64_t value = __be_client->candidate_config->version;
+	uint64_t version = __be_client->candidate_config->version;
+	char value[21]; /* UINT64_MAX has 20 digits */
 
-	if (lyd_new_term_bin(parent, snode->module, snode->name, &value, sizeof(value),
-			     LYD_NEW_PATH_UPDATE, NULL))
+	snprintfrr(value, sizeof(value), "%" PRIu64, version);
+	if (lyd_new_term(parent, snode->module, snode->name, value, false, NULL))
 		return NB_ERR_RESOURCE;
 
 	return NB_OK;
@@ -1244,10 +1243,11 @@ static enum nb_error clients_client_state_running_config_version_get(const struc
 								     struct lyd_node *parent)
 {
 	const struct lysc_node *snode = nb_node->snode;
-	uint64_t value = __be_client->running_config->version;
+	uint64_t version = __be_client->running_config->version;
+	char value[21]; /* UINT64_MAX has 20 digits */
 
-	if (lyd_new_term_bin(parent, snode->module, snode->name, &value, sizeof(value),
-			     LYD_NEW_PATH_UPDATE, NULL))
+	snprintfrr(value, sizeof(value), "%" PRIu64, version);
+	if (lyd_new_term(parent, snode->module, snode->name, value, false, NULL))
 		return NB_ERR_RESOURCE;
 
 	return NB_OK;

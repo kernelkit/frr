@@ -701,8 +701,8 @@ struct lyd_node *yang_state_new(struct lyd_node *tree, const char *path, const c
 	struct lyd_node *dnode, *parent;
 	LY_ERR err;
 
-	err = lyd_new_path2(tree, ly_native_ctx, path, value, 0, 0, LYD_NEW_PATH_UPDATE, &parent,
-			    &dnode);
+	err = yang_new_path2(tree, ly_native_ctx, path, value, 0, LYD_NEW_PATH_UPDATE, &parent,
+			     &dnode);
 	assert(err == LY_SUCCESS);
 
 	/*
@@ -911,7 +911,7 @@ LY_ERR yang_parse_data(const char *xpath, LYD_FORMAT format, bool as_subtree, bo
 		 * a common YANG JSON technique (vs XML which starts all
 		 * data trees from the root).
 		 */
-		err = lyd_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0, 0, &parent, &subtree);
+		err = yang_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0, &parent, &subtree);
 		if (err != LY_SUCCESS)
 			goto done;
 		err = lyd_find_path(parent, xpath, false, &subtree);
@@ -1010,8 +1010,7 @@ LY_ERR yang_parse_rpc(const char *xpath, LYD_FORMAT format, const char *data,
 			return LY_EINVAL;
 		}
 
-		err = lyd_new_path2(NULL, ly_native_ctx, parent_xpath, NULL, 0,
-				    0, 0, NULL, &parent);
+		err = yang_new_path2(NULL, ly_native_ctx, parent_xpath, NULL, 0, 0, NULL, &parent);
 		XFREE(MTYPE_TMP, parent_xpath);
 		if (err) {
 			zlog_err("Failed to create parent node for action: %s",
@@ -1170,12 +1169,13 @@ void yang_debugging_set(bool enable)
 struct ly_ctx *yang_ctx_new_setup(bool embedded_modules, bool explicit_compile, bool load_library)
 {
 	struct ly_ctx *ctx = NULL;
-	const char *yang_models_path = YANG_MODELS_PATH;
+	char search_dir[PATH_MAX] = {};
 	uint options;
 	LY_ERR err;
 
-	if (access(yang_models_path, R_OK | X_OK)) {
-		yang_models_path = NULL;
+	if (access(YANG_MODELS_PATH, R_OK | X_OK) == 0) {
+		strlcat(search_dir, YANG_MODELS_PATH, sizeof(search_dir));
+	} else {
 		if (errno == ENOENT)
 			zlog_info("yang model directory \"%s\" does not exist",
 				  YANG_MODELS_PATH);
@@ -1185,6 +1185,12 @@ struct ly_ctx *yang_ctx_new_setup(bool embedded_modules, bool explicit_compile, 
 				     YANG_MODELS_PATH);
 	}
 
+#ifdef HAVE_LY_YANG_MODULE_DIR
+	if (search_dir[0])
+		strlcat(search_dir, ":", sizeof(search_dir));
+	strlcat(search_dir, ly_yang_module_dir(), sizeof(search_dir));
+#endif
+
 	options = LY_CTX_DISABLE_SEARCHDIR_CWD;
 #if (LY_VERSION_MAJOR >= 4)
 	options |= LY_CTX_LYB_HASHES;
@@ -1193,7 +1199,7 @@ struct ly_ctx *yang_ctx_new_setup(bool embedded_modules, bool explicit_compile, 
 		options |= LY_CTX_NO_YANGLIBRARY;
 	if (explicit_compile)
 		options |= LY_CTX_EXPLICIT_COMPILE;
-	err = ly_ctx_new(yang_models_path, options, &ctx);
+	err = ly_ctx_new(search_dir, options, &ctx);
 	if (err)
 		return NULL;
 
@@ -1477,10 +1483,8 @@ int yang_xpath_pop_node(char *xpath)
  * Safe to remove after libyang v2.1.xxx is required (.144 has a bug so
  * something > .144) https://github.com/CESNET/libyang/issues/2149
  */
-LY_ERR yang_lyd_new_list(struct lyd_node_inner *parent,
-			 const struct lysc_node *snode,
-			 const struct yang_list_keys *list_keys,
-			 struct lyd_node **node)
+LY_ERR yang_lyd_new_list(struct lyd_node *parent, const struct lysc_node *snode,
+			 const struct yang_list_keys *list_keys, struct lyd_node **node)
 {
 #if defined(HAVE_LYD_NEW_LIST3) && 0
 	LY_ERR err;
@@ -1490,11 +1494,10 @@ LY_ERR yang_lyd_new_list(struct lyd_node_inner *parent,
 	for (int i = 0; i < list_keys->num; i++)
 		keys[i] = list_keys->key[i];
 
-	err = lyd_new_list3(&parent->node, snode->module, snode->name, keys,
-			    NULL, 0, node);
+	err = lyd_new_list3(parent, snode->module, snode->name, keys, NULL, 0, node);
 	return err;
 #else
-	struct lyd_node *pnode = &parent->node;
+	struct lyd_node *pnode = parent;
 	const char(*keys)[LIST_MAXKEYLEN] = list_keys->key;
 
 	assert(list_keys->num <= 8);
@@ -1578,7 +1581,7 @@ LY_ERR yang_lyd_trim_xpath(struct lyd_node **root, const char *xpath)
 
 	/* Mark */
 	for (i = 0; i < set->count; i++) {
-		for (node = set->dnodes[i]; node; node = &node->parent->node) {
+		for (node = set->dnodes[i]; node; node = lyd_parent(node)) {
 			if (node->priv)
 				break;
 			if (node == set->dnodes[i])
@@ -1655,6 +1658,28 @@ LY_ERR yang_lyd_parse_data(const struct ly_ctx *ctx, struct lyd_node *parent,
 
 	return LY_SUCCESS;
 }
+
+/*
+ * Handle NBC API changes between versions of Libyang
+ */
+
+#undef lyd_new_path2
+
+#if (LY_VERSION_MAJOR >= 4)
+#define LY_SZ(x) ((x)*8)
+#else
+#define LY_SZ(x) (x)
+#endif
+
+LY_ERR yang_new_path2(struct lyd_node *parent, const struct ly_ctx *ctx, const char *path,
+		      const void *value, uint32_t value_size_bytes, uint32_t options,
+		      struct lyd_node **new_parent, struct lyd_node **new_node)
+{
+	return lyd_new_path2(parent, ctx, path, value, LY_SZ(value_size_bytes), 0, options,
+			     new_parent, new_node);
+}
+
+#undef LY_SZ
 
 /*
  * Safe to remove after libyang v2.1.128 is required
