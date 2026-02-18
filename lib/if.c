@@ -1754,10 +1754,10 @@ static enum nb_error lib_interface_state_if_index_get(const struct nb_node *nb_n
 {
 	const struct lysc_node *snode = nb_node->snode;
 	const struct interface *ifp = list_entry;
-	int32_t value = ifp->ifindex;
+	char value[12]; /* INT32_MIN has a sign and then 10 digits */
 
-	if (lyd_new_term_bin(parent, snode->module, snode->name, &value, sizeof(value),
-			     LYD_NEW_PATH_UPDATE, NULL))
+	snprintfrr(value, sizeof(value), "%d", ifp->ifindex);
+	if (lyd_new_term(parent, snode->module, snode->name, value, false, NULL))
 		return NB_ERR_RESOURCE;
 	return NB_OK;
 }
@@ -1770,10 +1770,10 @@ static enum nb_error lib_interface_state_mtu_get(const struct nb_node *nb_node,
 {
 	const struct lysc_node *snode = nb_node->snode;
 	const struct interface *ifp = list_entry;
-	uint32_t value = ifp->mtu;
+	char value[11]; /* UINT32_MAX has 10 digits */
 
-	if (lyd_new_term_bin(parent, snode->module, snode->name, &value, sizeof(value),
-			     LYD_NEW_PATH_UPDATE, NULL))
+	snprintfrr(value, sizeof(value), "%u", ifp->mtu);
+	if (lyd_new_term(parent, snode->module, snode->name, value, false, NULL))
 		return NB_ERR_RESOURCE;
 	return NB_OK;
 }
@@ -1786,10 +1786,10 @@ static enum nb_error lib_interface_state_speed_get(const struct nb_node *nb_node
 {
 	const struct lysc_node *snode = nb_node->snode;
 	const struct interface *ifp = list_entry;
-	uint32_t value = ifp->speed;
+	char value[11]; /* UINT32_MAX has 10 digits */
 
-	if (lyd_new_term_bin(parent, snode->module, snode->name, &value, sizeof(value),
-			     LYD_NEW_PATH_UPDATE, NULL))
+	snprintfrr(value, sizeof(value), "%u", ifp->speed);
+	if (lyd_new_term(parent, snode->module, snode->name, value, false, NULL))
 		return NB_ERR_RESOURCE;
 	return NB_OK;
 }
@@ -1802,10 +1802,10 @@ static enum nb_error lib_interface_state_metric_get(const struct nb_node *nb_nod
 {
 	const struct lysc_node *snode = nb_node->snode;
 	const struct interface *ifp = list_entry;
-	uint32_t value = ifp->metric;
+	char value[11]; /* UINT32_MAX has 10 digits */
 
-	if (lyd_new_term_bin(parent, snode->module, snode->name, &value, sizeof(value),
-			     LYD_NEW_PATH_UPDATE, NULL))
+	snprintfrr(value, sizeof(value), "%u", ifp->metric);
+	if (lyd_new_term(parent, snode->module, snode->name, value, false, NULL))
 		return NB_ERR_RESOURCE;
 	return NB_OK;
 }

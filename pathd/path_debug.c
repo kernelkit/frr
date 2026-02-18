@@ -8,7 +8,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <time.h>
-#include <libyang/libyang.h>
+#include "yang.h"
 
 #include "printfrr.h"
 #include "ipaddr.h"

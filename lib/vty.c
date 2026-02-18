@@ -3750,6 +3750,9 @@ static void vty_out_yang_error(struct vty *vty, LYD_FORMAT format,
 		break;
 	case LYD_UNKNOWN:
 	case LYD_LYB:
+#if HAVE_DECL_LYD_CBOR
+	case LYD_CBOR:
+#endif
 	default:
 		vty_out(vty, "%% error");
 		if (severity)

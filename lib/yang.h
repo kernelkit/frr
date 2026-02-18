@@ -9,7 +9,12 @@
 
 #include "memory.h"
 
+/* libyang >= 5 defines its own _DEPRECATED, keep the one from compiler.h */
+#pragma push_macro("_DEPRECATED")
+#undef _DEPRECATED
 #include <libyang/libyang.h>
+#undef _DEPRECATED
+#pragma pop_macro("_DEPRECATED")
 #ifdef HAVE_SYSREPO
 #include <sysrepo.h>
 #endif
@@ -20,6 +25,18 @@
 #include <libyang/version.h>
 #if (LY_VERSION_MAJOR >= 4)
 #define LYD_PRINT_WITHSIBLINGS LYD_PRINT_SIBLINGS
+#endif
+
+#if (LY_VERSION_MAJOR >= 5)
+#define LYD_PARSE_LYB_SKIP_CTX_CHECK LYD_PARSE_LYB_SKIP_MODULE_CHECK
+#define LYD_API_PARENT_TYPE(p)	     (p)
+#else
+#define LYD_API_PARENT_TYPE(p) ((struct lyd_node_inner *)(p))
+#endif
+
+/* libyang 6.3.0 renamed LY_ARRAY_COUNT to LYA_COUNT without bumping the SO major */
+#if !defined(LY_ARRAY_COUNT) && defined(LYA_COUNT)
+#define LY_ARRAY_COUNT LYA_COUNT
 #endif
 
 #ifdef __cplusplus
@@ -931,16 +948,23 @@ extern LY_ERR yang_resolve_snode_xpath(struct ly_ctx *ly_ctx, const char *xpath,
  */
 extern const char *yang_ly_strerrcode(LY_ERR err);
 extern const char *yang_ly_strvecode(LY_VECODE vecode);
-extern LY_ERR yang_lyd_new_list(struct lyd_node_inner *parent,
-				const struct lysc_node *snode,
-				const struct yang_list_keys *keys,
-				struct lyd_node **nodes);
+extern LY_ERR yang_lyd_new_list(struct lyd_node *parent, const struct lysc_node *snode,
+				const struct yang_list_keys *keys, struct lyd_node **nodes);
 extern LY_ERR yang_lyd_trim_xpath(struct lyd_node **rootp, const char *xpath);
 extern LY_ERR yang_lyd_parse_data(const struct ly_ctx *ctx,
 				  struct lyd_node *parent, struct ly_in *in,
 				  LYD_FORMAT format, uint32_t parse_options,
 				  uint32_t validate_options,
 				  struct lyd_node **tree);
+
+/*
+ * Handle NBC API changes between versions of Libyang
+ */
+
+extern LY_ERR yang_new_path2(struct lyd_node *parent, const struct ly_ctx *ctx, const char *path,
+			     const void *value, uint32_t value_size_bytes, uint32_t options,
+			     struct lyd_node **new_parent, struct lyd_node **new_node);
+#define lyd_new_path2(...) _Pragma("GCC error \"Use yang_new_path2() instead of lyd_new_path2()\"")
 
 #ifdef __cplusplus
 }
