@@ -2466,6 +2466,15 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 							    nexthop->ifindex);
 
 			newhop = match->nhe->nhg.nexthop;
+			/*
+			 * If the connected route's nexthop is inactive
+			 * (e.g. the interface was deleted but the LOCAL route
+			 * hasn't been cleaned up from the RIB yet), do not
+			 * copy its stale ifindex.  Treat it as unresolvable
+			 * and continue up the trie instead.
+			 */
+			if (!CHECK_FLAG(newhop->flags, NEXTHOP_FLAG_ACTIVE))
+				goto continue_up_tree;
 			if (nexthop->type == NEXTHOP_TYPE_IPV4) {
 				nexthop->ifindex = newhop->ifindex;
 				nexthop->type = NEXTHOP_TYPE_IPV4_IFINDEX;
