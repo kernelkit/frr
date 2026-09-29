@@ -2851,6 +2851,7 @@ struct interface *zebra_interface_state_read(struct stream *s, vrf_id_t vrf_id)
 {
 	struct interface *ifp;
 	char ifname_tmp[IFNAMSIZ + 1] = {};
+	bool unreal;
 
 	/* Read interface name. */
 	STREAM_GET(ifname_tmp, s, IFNAMSIZ);
@@ -2864,7 +2865,12 @@ struct interface *zebra_interface_state_read(struct stream *s, vrf_id_t vrf_id)
 		return NULL;
 	}
 
+	unreal = ifp->ifindex == IFINDEX_INTERNAL;
 	zebra_interface_if_set_value(s, ifp);
+
+	/* Created from config ahead of INTERFACE_ADD, see FRRouting/frr#4178 */
+	if (unreal && ifp->ifindex != IFINDEX_INTERNAL)
+		if_new_via_zapi(ifp);
 
 	return ifp;
 stream_failure:
