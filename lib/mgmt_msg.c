@@ -180,15 +180,34 @@ bool mgmt_msg_procbufs(struct mgmt_msg_state *ms,
 
 		for (; left > sizeof(struct mgmt_msg_hdr);
 		     left -= mhdr->len, data += mhdr->len) {
+			uint8_t *msg, *copy = NULL;
+			size_t msglen;
+
 			mhdr = (struct mgmt_msg_hdr *)data;
 
 			assert(MGMT_MSG_IS_MARKER(mhdr->marker));
+			assert(mhdr->len >= sizeof(struct mgmt_msg_hdr));
 			assert(left >= mhdr->len);
 
-			handle_msg(MGMT_MSG_MARKER_VERSION(mhdr->marker),
-				   (uint8_t *)(mhdr + 1),
-				   mhdr->len - sizeof(struct mgmt_msg_hdr),
-				   user);
+			msg = (uint8_t *)(mhdr + 1);
+			msglen = mhdr->len - sizeof(struct mgmt_msg_hdr);
+
+			/*
+			 * Messages are packed back to back, so one following a
+			 * message whose length is not a multiple of 8 starts
+			 * unaligned.  Handlers cast it to structs with 64-bit
+			 * members, which traps on 32-bit Arm when the compiler
+			 * uses VFP/NEON stores, so give them an aligned copy.
+			 */
+			if ((uintptr_t)msg % sizeof(uint64_t)) {
+				copy = XMALLOC(MTYPE_TMP, msglen);
+				memcpy(copy, msg, msglen);
+				msg = copy;
+			}
+
+			handle_msg(MGMT_MSG_MARKER_VERSION(mhdr->marker), msg,
+				   msglen, user);
+			XFREE(MTYPE_TMP, copy);
 			ms->nrxm++;
 			nproc++;
 		}
