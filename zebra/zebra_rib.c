@@ -4458,7 +4458,7 @@ void rib_meta_queue_early_route_cleanup(const struct prefix *p, int route_type)
 	/* Iterate through the early route subqueue */
 	for (ALL_LIST_ELEMENTS(zrouter.mq->subq[META_QUEUE_EARLY_ROUTE], node, nnode, ere)) {
 		/* Check if this entry matches the prefix and route type */
-		if (prefix_same(&ere->p, p) && ere->re->type == route_type) {
+		if (!ere->deletion && prefix_same(&ere->p, p) && ere->re->type == route_type) {
 			/* Remove from the list */
 			list_delete_node(zrouter.mq->subq[META_QUEUE_EARLY_ROUTE], node);
 
